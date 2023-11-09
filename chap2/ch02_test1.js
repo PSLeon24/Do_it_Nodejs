@@ -1,7 +1,7 @@
 var result = 0;
 console.time('duration_sum');
 
-for (var i=1; i<=1000; i++) {
+for (var i=1; i<=10000; i++) {
     result += i;
 }
 
