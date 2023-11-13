@@ -1,13 +1,37 @@
-var express = require('express');
-var http = require('http');
-var path = require('path');
-var bodyParser = require('body-parser');
-var static = require('serve-static');
+// Express 기본 모듈 불러오기
+var express = require('express'),
+    http = require('http'),
+    path = require('path');
+
+// Express 미들웨어 불러오기
+var bodyParser = require('body-parser'),
+    static = require('serve-static');
+
 var expressErrorHandler = require('express-error-handler');
 var cookieParser = require('cookie-parser');
 var expressSession = require('express-session');
 
+// 익스프레스 객체 생성
 var app = express();
+
+var router = express.Router();
+
+var errorHandler = expressErrorHandler({
+    static: {
+        '404': './public/404.html'
+    }
+});
+
+// 기본 속성 설정
+app.set('port', process.env.PORT || 3000);
+
+// body-parser를 사용해 application/x-www-form-urlencoded 파싱
+app.use(bodyParser.urlencoded({ extended: false }));
+
+// body-parser를 사용해 applicaiton/json 파싱
+app.use(bodyParser.json());
+
+app.use('/public', static(path.join(__dirname, 'public')));
 
 app.use(cookieParser());
 app.use(expressSession({
@@ -16,26 +40,8 @@ app.use(expressSession({
     saveUninitialized: true
 }));
 
-var router = express.Router();
-
-router.route('/process/product').get(function(req, res) {
-    console.log('/process/product 호출됨.');
-
-    if (req.session.user) {
-        res.redirect('/public/product.html');
-    } else {
-        res.redirect('/public/login2.html');
-    }
-});
-
-router.route('/process/showCookie').get(function(req, res) {
-    console.log('/process/showCookie 호출됨.');
-
-    res.send(req.cookies);
-});
-
 router.route('/process/login').post(function(req, res) {
-    console.log('/process/login 호출됨.');
+    console.log('/process/login 처리함');
 
     var paramId = req.body.id || req.query.id;
     var paramPassword = req.body.password || req.query.password;
@@ -43,45 +49,59 @@ router.route('/process/login').post(function(req, res) {
     if (req.session.user) {
         console.log('이미 로그인되어 상품 페이지로 이동합니다.');
 
-        res.redirect('./public/product.html')
+
+        res.redirect('/public/product.html');
     } else {
-        res.cookie('user', {
-            id: 'mike',
+        req.session.user = {
+            id: paramId,
             name: '소녀시대',
             authorized: true
-        });
+        };
 
-        res.writeHead('200', {'Content-Type': 'text/html; charset=utf8'});
-        res.write('<h1>로그인 성공</h1>');
-        res.write('<div><p>Param id: ' + paramId + '</p></div>');
-        res.write('<div><p>Param password: ' + paramPassword + '</p></div>');
-        res.write('<div><a href="/process/product">상품 페이지로 이동하기</a></div>');
-        res.end();
+    }
+
+    res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
+    res.write('<h1>로그인 성공.</h1>');
+    res.write('<div><p>Param id : ' + paramId + '</p></div>');
+    res.write('<div><p>ParamPassword : ' + paramPassword + '</p></div>');
+    res.write("<br><br><a href='/public/product.html'>상품 페이지로 돌아가기</a>");
+    res.end();
+});
+
+router.route('/process/logout').get(function(req, res) {
+    console.log('/process/logout is called');
+
+    if (req.session.user) {
+        console.log('로그아웃합니다.');
+
+        req.session.destroy(function (err) {
+            if (err) throw err;
+
+            console.log('세션을 삭제하고 로그아웃되었습니다.');
+            res.redirect('/public/login2.html');
+        });
+    } else {
+        console.log('아직 로그인되어 있지 않습니다.');
+
+        res.redirect('/public/login2.html');
     }
 });
 
-router.route('/process/logout').post(function(req, res) {
-    console.log('/process/logout 호출됨.');
+router.route('/process/users/:id').get(function(req, res) {
+    console.log('/progress/users/:id 처리함');
 
-    if (req.session.user) {
-        console.log('로그아웃 합니다.');
+    var paramId = req.params.id;
 
-        req.session.destroy(function(err) {
-            if (err) { throw err; }
+    console.log('/process/users와 토큰 %s를 이용해 처리함', paramId);
 
-            console.log('세션을 삭제하고 로그아웃 되었습니다.');
-            res.redirect('./public/login2.html');
-        });
-
-        res.redirect('./public/product.html')
-    } else {
-        console.log('아직 로그인되어 있지 않습니다.');
-        res.redirect('./public/login2.html');
-    }
+    res.writeHead(200, {'Content-Type': 'text/html;charset=utf-8'});
+    res.write('<h1>Express 서버에서 응답한 결과입니다.</h1>');
+    res.write('<div><p>Param Id : ' + paramId + '</p></div>');
+    res.end();
 });
 
 router.route('/process/setUserCookie').get(function(req, res) {
-    console.log('/process/setUserCookie 호출됨.');
+    console.log('/process/setUserCookie 호출됨');
 
     res.cookie('user', {
         id: 'mike',
@@ -92,37 +112,23 @@ router.route('/process/setUserCookie').get(function(req, res) {
     res.redirect('/process/showCookie');
 });
 
-// 라우팅 함수 등록
-router.route('/process/users/:id').get(function(req, res) {
-    console.log('/process/users/:id 처리함.');
+router.route('/process/showCookie').get(function(req, res) {
+    console.log('/process/showCookie is called');
 
-    var paramId = req.params.id;
+    res.send(req.cookies);
+})
 
-    console.log('/process/users와 토큰 %s를 이용해 처리함.', paramId);
+router.route('/process/product').get(function(req, res) {
+    console.log('/process/product is called');
 
-    res.writeHead('200', {'Content-Type': 'text/html; charset=utf8'});
-    res.write('<h1>Express 서버에서 응답한 결과입니다.</h1>');
-    res.write('<div><p>Param id: ' + paramId + '</p></div>');
-    res.end();
-});
-
-app.set('port', process.env.PORT || 3000);
-
-// body-parser 를 사용해 application/x-www-from-urlencoded 파싱
-app.use(bodyParser.urlencoded( { extended : false }));
-
-// body-parser 를 사용해 application/json 파싱
-app.use(bodyParser.json());
-
-app.use(static(path.join(__dirname, 'public')));
+    if (req.session.user) {
+        res.redirect('/public/product.html');
+    } else {
+        res.redirect('/public/login2.html');
+    }
+})
 
 app.use('/', router);
-
-var errorHandler = expressErrorHandler({
-    static: {
-        '404': './public/404.html'
-    }
-});
 
 app.use(expressErrorHandler.httpError(404));
 app.use(errorHandler);
