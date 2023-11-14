@@ -15,6 +15,10 @@
         <p>
             <%= paramMemo %>
         </p>
+
+        <% if (uploadedFile && uploadedFile.path) { %>
+            <img src="<%= uploadedFile.path %>" alt="업로드된 이미지">
+            <% } %>
     </div>
     <a href="/" class="btn btn-primary">다시 작성</a>
 </body>
